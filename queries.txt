@@ -1,0 +1,33 @@
+### devices that are online
+SELECT ?device ?type
+WHERE {
+    ?device a ?type ;
+            <http://www.semanticweb.org/shimanto/ontologies/2024/10/smart-home/deviceStatus> "Online" .
+}
+
+### Check if the front door lock is locked
+
+ASK {
+    <http://users.jyu.fi/~mrrahman/smart-home-individuals#lock1> 
+        <http://www.semanticweb.org/shimanto/ontologies/2024/10/smart-home/deviceStatus> "Locked" .
+}
+
+## is there any device offline?
+ASK {
+    ?device <http://www.semanticweb.org/shimanto/ontologies/2024/10/smart-home/deviceStatus> "Offline" .
+}
+
+
+### Construct a graph of devices and their types along with colors if applicable
+CONSTRUCT {
+    ?device a ?type ;
+            <http://www.semanticweb.org/shimanto/ontologies/2024/10/smart-home/color> ?color .
+}
+WHERE {
+    ?device a ?type .
+    OPTIONAL { 
+        ?device <http://www.semanticweb.org/shimanto/ontologies/2024/10/smart-home/color> ?color .
+    }
+}
+## describe information about the Kitchen Smart Light 
+DESCRIBE <http://users.jyu.fi/~mrrahman/smart-home-individuals#smartLight1>

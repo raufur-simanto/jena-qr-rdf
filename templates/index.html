@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RDFa SPARQL Endpoint</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 120px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .error {
+            color: #dc3545;
+            padding: 10px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RDFa SPARQL Endpoint</h1>
+        
+        <div class="form-group">
+            <label for="url">RDFa Source URL:</label>
+            <input type="text" id="url" placeholder="Enter URL of XHTML file with RDFa content"
+                   value="http://users.jyu.fi/~olkhvnye/ties4520/test/rdfa1_test.xhtml">
+        </div>
+
+        <div class="form-group">
+            <label for="rules">Rules:</label>
+            <textarea id="rules" placeholder="Enter rules (optional)">@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix dc: <http://purl.org/dc/elements/1.1/>.
+[rule1: (?a foaf:interest ?b) (?b dc:title ?c) -> (?a foaf:nick ?c)]</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="query">SPARQL Query:</label>
+            <textarea id="query" placeholder="Enter SPARQL query">SELECT ?s ?p ?o
+WHERE { ?s ?p ?o }</textarea>
+        </div>
+
+        <button onclick="executeQuery()">Execute Query</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function executeQuery() {
+            const url = document.getElementById('url').value;
+            const rules = document.getElementById('rules').value;
+            const sparqlQuery = document.getElementById('query').value;
+            const resultDiv = document.getElementById('result');
+
+            try {
+                const response = await fetch('http://localhost:5000/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        rules: rules,
+                        sparqlQuery: sparqlQuery
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    resultDiv.innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+
+                // Handle different result types
+                if (Array.isArray(data)) {
+                    // SELECT query results
+                    if (data.length > 0) {
+                        const headers = Object.keys(data[0]);
+                        let table = '<table><tr>' + 
+                            headers.map(h => `<th>${h}</th>`).join('') + 
+                            '</tr>';
+                        
+                        table += data.map(row => 
+                            '<tr>' + headers.map(h => 
+                                `<td>${row[h]}</td>`).join('') + '</tr>'
+                        ).join('');
+                        
+                        table += '</table>';
+                        resultDiv.innerHTML = table;
+                    } else {
+                        resultDiv.textContent = 'No results found';
+                    }
+                } else if (data.result !== undefined) {
+                    // ASK query results
+                    resultDiv.textContent = `Result: ${data.result}`;
+                } else if (data.triples) {
+                    // CONSTRUCT/DESCRIBE query results
+                    let table = '<table><tr><th>Subject</th><th>Predicate</th><th>Object</th></tr>';
+                    table += data.triples.map(triple => 
+                        `<tr><td>${triple.s}</td><td>${triple.p}</td><td>${triple.o}</td></tr>`
+                    ).join('');
+                    table += '</table>';
+                    resultDiv.innerHTML = table;
+                } else {
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
